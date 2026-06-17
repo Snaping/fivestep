@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Reflection;
 using GomokuAI.Engine;
 
 namespace GomokuAI;
@@ -28,6 +29,26 @@ public partial class MainForm : Form
     private const int BoardMargin = 20;
     private const int StoneRadius = 16;
 
+    private Bitmap? _boardCache;
+    private bool _boardCacheDirty = true;
+    private int _lastCachedMoveCount = -1;
+
+    private static readonly Color BgColor = Color.FromArgb(222, 184, 135);
+    private static readonly Color BlackStoneFrom = Color.Gray;
+    private static readonly Color BlackStoneTo = Color.Black;
+    private static readonly Color WhiteStoneFrom = Color.White;
+    private static readonly Color WhiteStoneTo = Color.LightGray;
+    private static readonly Font LabelFont = new("Consolas", 8);
+    private static readonly Font NumFont = new("Consolas", 8, FontStyle.Bold);
+    private static readonly Font RankFont = new("Arial", 9, FontStyle.Bold);
+    private static readonly Font WarnFont = new("Microsoft YaHei UI", 10, FontStyle.Bold);
+    private static readonly SolidBrush BgBrush = new(BgColor);
+    private static readonly Pen LinePen = new(Color.Black, 1);
+    private static readonly SolidBrush StarBrush = new(Color.Black);
+    private static readonly SolidBrush LabelBrush = new(Color.DimGray);
+    private static readonly SolidBrush WhiteTextBrush = new(Color.White);
+    private static readonly SolidBrush BlackTextBrush = new(Color.Black);
+
     public MainForm()
     {
         InitializeComponent();
@@ -41,147 +62,101 @@ public partial class MainForm : Form
         _useTimeLimit = false;
         _currentTimeLimit = TimeSpan.FromSeconds(5);
 
-        _board.BoardChanged += (s, e) => InvalidateBoard();
+        EnableDoubleBuffering(panelBoard);
+
+        _board.BoardChanged += (s, e) => { _boardCacheDirty = true; InvalidateBoard(); };
         _board.GameOverOccurred += OnGameOver;
 
         cmbAISide.SelectedIndex = 1;
         UpdateUIState();
     }
 
+    private static void EnableDoubleBuffering(Control control)
+    {
+        var prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+        prop?.SetValue(control, true);
+        typeof(Control).InvokeMember("SetStyle",
+            BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.NonPublic,
+            null, control,
+            new object[] { (int)(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint), true });
+    }
+
+    private void EnsureBoardCache()
+    {
+        if (_boardCache == null || _boardCache.Width != panelBoard.Width || _boardCache.Height != panelBoard.Height)
+        {
+            _boardCache?.Dispose();
+            _boardCache = new Bitmap(panelBoard.Width, panelBoard.Height);
+            _boardCacheDirty = true;
+        }
+
+        if (!_boardCacheDirty && _lastCachedMoveCount == _board.MoveHistory.Count)
+            return;
+
+        using var g = Graphics.FromImage(_boardCache);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+
+        RenderBoardStatic(g);
+        RenderStones(g);
+        RenderMoveNumbers(g);
+        RenderWinningLine(g);
+        RenderLastMoveMarker(g);
+
+        _boardCacheDirty = false;
+        _lastCachedMoveCount = _board.MoveHistory.Count;
+    }
+
     private void InvalidateBoard()
     {
+        _boardCacheDirty = true;
         if (InvokeRequired)
-        {
             Invoke(new Action(() => panelBoard.Invalidate()));
-        }
         else
-        {
             panelBoard.Invalidate();
-        }
     }
 
     private void panelBoard_Paint(object? sender, PaintEventArgs e)
     {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
+        EnsureBoardCache();
 
-        var bgBrush = new SolidBrush(Color.FromArgb(222, 184, 135));
-        g.FillRectangle(bgBrush, 0, 0, panelBoard.Width, panelBoard.Height);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+        e.Graphics.DrawImage(_boardCache!, 0, 0);
 
-        var linePen = new Pen(Color.Black, 1);
+        RenderHoverHighlight(e.Graphics);
+        RenderCandidates(e.Graphics);
+        RenderHintHighlight(e.Graphics);
+    }
+
+    private static void RenderBoardStatic(Graphics g)
+    {
+        g.FillRectangle(BgBrush, 0, 0, 15 * CellSize + 2 * BoardMargin, 15 * CellSize + 2 * BoardMargin);
+
         for (int i = 0; i < Board.Size; i++)
         {
-            g.DrawLine(linePen,
+            g.DrawLine(LinePen,
                 BoardMargin + i * CellSize, BoardMargin,
                 BoardMargin + i * CellSize, BoardMargin + (Board.Size - 1) * CellSize);
-            g.DrawLine(linePen,
+            g.DrawLine(LinePen,
                 BoardMargin, BoardMargin + i * CellSize,
                 BoardMargin + (Board.Size - 1) * CellSize, BoardMargin + i * CellSize);
         }
 
-        DrawStarPoints(g);
-        DrawBoardLabels(g);
-        DrawHoverHighlight(g);
-        DrawCandidates(g);
-        DrawHintHighlight(g);
-        DrawStones(g);
-        DrawWinningLine(g);
-        DrawMoveNumbers(g);
-    }
-
-    private void DrawStarPoints(Graphics g)
-    {
         int[] starPoints = { 3, 7, 11 };
-        var starBrush = new SolidBrush(Color.Black);
         foreach (var px in starPoints)
-        {
             foreach (var py in starPoints)
-            {
-                int cx = BoardMargin + px * CellSize;
-                int cy = BoardMargin + py * CellSize;
-                g.FillEllipse(starBrush, cx - 4, cy - 4, 8, 8);
-            }
-        }
-    }
-
-    private void DrawBoardLabels(Graphics g)
-    {
-        var labelFont = new Font("Consolas", 8);
-        var labelBrush = new SolidBrush(Color.DimGray);
+                g.FillEllipse(StarBrush, BoardMargin + px * CellSize - 4, BoardMargin + py * CellSize - 4, 8, 8);
 
         for (int i = 0; i < Board.Size; i++)
         {
             char col = (char)('A' + (i < 8 ? i : i + 1));
-            g.DrawString(col.ToString(), labelFont, labelBrush,
-                BoardMargin + i * CellSize - 4, 2);
-            g.DrawString((Board.Size - i).ToString(), labelFont, labelBrush,
-                2, BoardMargin + i * CellSize - 6);
+            g.DrawString(col.ToString(), LabelFont, LabelBrush, BoardMargin + i * CellSize - 4, 2);
+            g.DrawString((Board.Size - i).ToString(), LabelFont, LabelBrush, 2, BoardMargin + i * CellSize - 6);
         }
     }
 
-    private void DrawHoverHighlight(Graphics g)
-    {
-        if (_hoverCell.HasValue && _board.IsValidMove(_hoverCell.Value.X, _hoverCell.Value.Y))
-        {
-            int cx = BoardMargin + _hoverCell.Value.X * CellSize;
-            int cy = BoardMargin + _hoverCell.Value.Y * CellSize;
-            var player = _board.CurrentPlayer;
-            var hoverColor = player == Stone.Black ? Color.FromArgb(60, Color.Black) : Color.FromArgb(60, Color.White);
-            using var brush = new SolidBrush(hoverColor);
-            g.FillEllipse(brush, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
-        }
-    }
-
-    private void DrawCandidates(Graphics g)
-    {
-        if (_currentCandidates.Count == 0 || _board.GameOver) return;
-
-        for (int i = 0; i < _currentCandidates.Count; i++)
-        {
-            var c = _currentCandidates[i];
-            int cx = BoardMargin + c.X * CellSize;
-            int cy = BoardMargin + c.Y * CellSize;
-
-            Color[] colors = { Color.FromArgb(180, Color.LimeGreen), Color.FromArgb(180, Color.Yellow), Color.FromArgb(180, Color.Orange) };
-            int colorIdx = Math.Min(i, colors.Length - 1);
-            using var pen = new Pen(colors[colorIdx], 3);
-            using var brush = new SolidBrush(Color.FromArgb(50, colors[colorIdx]));
-
-            g.FillEllipse(brush, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
-            g.DrawEllipse(pen, cx - StoneRadius - 2, cy - StoneRadius - 2, StoneRadius * 2 + 4, StoneRadius * 2 + 4);
-
-            using var rankBrush = new SolidBrush(colors[colorIdx]);
-            using var rankFont = new Font("Arial", 9, FontStyle.Bold);
-            var rankText = "#" + (i + 1).ToString();
-            var sz = g.MeasureString(rankText, rankFont);
-            g.FillRectangle(Brushes.White, cx - sz.Width / 2 - 2, cy + StoneRadius + 2, sz.Width + 4, sz.Height);
-            g.DrawString(rankText, rankFont, rankBrush, cx - sz.Width / 2, cy + StoneRadius + 3);
-        }
-    }
-
-    private void DrawHintHighlight(Graphics g)
-    {
-        if (!_hintMove.HasValue) return;
-
-        int cx = BoardMargin + _hintMove.Value.X * CellSize;
-        int cy = BoardMargin + _hintMove.Value.Y * CellSize;
-
-        using var pen = new Pen(Color.Red, 4);
-
-        for (int i = 0; i < 3; i++)
-        {
-            g.DrawEllipse(pen, cx - StoneRadius - 6 - i * 3, cy - StoneRadius - 6 - i * 3,
-                StoneRadius * 2 + 12 + i * 6, StoneRadius * 2 + 12 + i * 6);
-        }
-
-        var warnFont = new Font("Microsoft YaHei UI", 10, FontStyle.Bold);
-        var warnText = "WARN!";
-        var sz = g.MeasureString(warnText, warnFont);
-        g.FillRectangle(Brushes.Red, cx - sz.Width / 2 - 4, cy - StoneRadius - 35, sz.Width + 8, sz.Height + 4);
-        g.DrawString(warnText, warnFont, Brushes.White, cx - sz.Width / 2, cy - StoneRadius - 33);
-    }
-
-    private void DrawStones(Graphics g)
+    private void RenderStones(Graphics g)
     {
         for (int x = 0; x < Board.Size; x++)
         {
@@ -192,29 +167,44 @@ public partial class MainForm : Form
 
                 int cx = BoardMargin + x * CellSize;
                 int cy = BoardMargin + y * CellSize;
+                var rect = new Rectangle(cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
 
                 if (stone == Stone.Black)
                 {
-                    var gradBrush = new LinearGradientBrush(
-                        new Rectangle(cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2),
-                        Color.Gray, Color.Black, 45f);
-                    g.FillEllipse(gradBrush, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
-                    var highlightBrush = new SolidBrush(Color.FromArgb(100, Color.White));
-                    g.FillEllipse(highlightBrush, cx - StoneRadius + 4, cy - StoneRadius + 4, 8, 8);
+                    using var gradBrush = new LinearGradientBrush(rect, BlackStoneFrom, BlackStoneTo, 45f);
+                    g.FillEllipse(gradBrush, rect);
+                    using var hl = new SolidBrush(Color.FromArgb(100, Color.White));
+                    g.FillEllipse(hl, cx - StoneRadius + 4, cy - StoneRadius + 4, 8, 8);
                 }
                 else
                 {
-                    var gradBrush = new LinearGradientBrush(
-                        new Rectangle(cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2),
-                        Color.White, Color.LightGray, 45f);
-                    g.FillEllipse(gradBrush, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
-                    g.DrawEllipse(Pens.Gray, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
-                    var highlightBrush = new SolidBrush(Color.FromArgb(80, Color.White));
-                    g.FillEllipse(highlightBrush, cx - StoneRadius + 4, cy - StoneRadius + 4, 8, 8);
+                    using var gradBrush = new LinearGradientBrush(rect, WhiteStoneFrom, WhiteStoneTo, 45f);
+                    g.FillEllipse(gradBrush, rect);
+                    g.DrawEllipse(Pens.Gray, rect);
+                    using var hl = new SolidBrush(Color.FromArgb(80, Color.White));
+                    g.FillEllipse(hl, cx - StoneRadius + 4, cy - StoneRadius + 4, 8, 8);
                 }
             }
         }
+    }
 
+    private void RenderMoveNumbers(Graphics g)
+    {
+        if (_board.MoveHistory.Count == 0) return;
+
+        foreach (var move in _board.MoveHistory)
+        {
+            int cx = BoardMargin + move.X * CellSize;
+            int cy = BoardMargin + move.Y * CellSize;
+            var text = move.MoveNumber.ToString();
+            var sz = g.MeasureString(text, NumFont);
+            var brush = move.Player == Stone.Black ? WhiteTextBrush : BlackTextBrush;
+            g.DrawString(text, NumFont, brush, cx - sz.Width / 2, cy - sz.Height / 2);
+        }
+    }
+
+    private void RenderLastMoveMarker(Graphics g)
+    {
         if (_board.MoveHistory.Count > 0 && !_board.GameOver)
         {
             var lastMove = _board.MoveHistory[^1];
@@ -225,53 +215,100 @@ public partial class MainForm : Form
         }
     }
 
-    private void DrawWinningLine(Graphics g)
+    private void RenderWinningLine(Graphics g)
     {
         if (!_board.GameOver || _board.WinningLine.Count == 0) return;
 
-        using var pen = new Pen(Color.Red, 4)
-        {
-            DashStyle = DashStyle.Dash
-        };
+        using var pen = new Pen(Color.Red, 4) { DashStyle = DashStyle.Dash };
         using var brush = new SolidBrush(Color.FromArgb(180, Color.Yellow));
 
         foreach (var (x, y) in _board.WinningLine)
         {
             int cx = BoardMargin + x * CellSize;
             int cy = BoardMargin + y * CellSize;
-            g.FillEllipse(brush, cx - StoneRadius - 4, cy - StoneRadius - 4,
-                StoneRadius * 2 + 8, StoneRadius * 2 + 8);
-            g.DrawEllipse(pen, cx - StoneRadius - 4, cy - StoneRadius - 4,
-                StoneRadius * 2 + 8, StoneRadius * 2 + 8);
+            g.FillEllipse(brush, cx - StoneRadius - 4, cy - StoneRadius - 4, StoneRadius * 2 + 8, StoneRadius * 2 + 8);
+            g.DrawEllipse(pen, cx - StoneRadius - 4, cy - StoneRadius - 4, StoneRadius * 2 + 8, StoneRadius * 2 + 8);
         }
     }
 
-    private void DrawMoveNumbers(Graphics g)
+    private void RenderHoverHighlight(Graphics g)
     {
-        if (_board.MoveHistory.Count == 0) return;
+        if (!_hoverCell.HasValue || !_board.IsValidMove(_hoverCell.Value.X, _hoverCell.Value.Y)) return;
 
-        using var numFont = new Font("Consolas", 8, FontStyle.Bold);
-        foreach (var move in _board.MoveHistory)
+        int cx = BoardMargin + _hoverCell.Value.X * CellSize;
+        int cy = BoardMargin + _hoverCell.Value.Y * CellSize;
+        var player = _board.CurrentPlayer;
+        var hoverColor = player == Stone.Black ? Color.FromArgb(60, Color.Black) : Color.FromArgb(60, Color.White);
+        using var brush = new SolidBrush(hoverColor);
+        g.FillEllipse(brush, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
+    }
+
+    private void RenderCandidates(Graphics g)
+    {
+        if (_currentCandidates.Count == 0 || _board.GameOver) return;
+
+        Color[] colors = { Color.FromArgb(180, Color.LimeGreen), Color.FromArgb(180, Color.Yellow), Color.FromArgb(180, Color.Orange) };
+
+        for (int i = 0; i < _currentCandidates.Count; i++)
         {
-            int cx = BoardMargin + move.X * CellSize;
-            int cy = BoardMargin + move.Y * CellSize;
-            var text = move.MoveNumber.ToString();
-            var sz = g.MeasureString(text, numFont);
+            var c = _currentCandidates[i];
+            int cx = BoardMargin + c.X * CellSize;
+            int cy = BoardMargin + c.Y * CellSize;
+            int colorIdx = Math.Min(i, colors.Length - 1);
 
-            var textColor = move.Player == Stone.Black ? Color.White : Color.Black;
-            g.DrawString(text, numFont, new SolidBrush(textColor),
-                cx - sz.Width / 2, cy - sz.Height / 2);
+            using var pen = new Pen(colors[colorIdx], 3);
+            using var brush = new SolidBrush(Color.FromArgb(50, colors[colorIdx]));
+            g.FillEllipse(brush, cx - StoneRadius, cy - StoneRadius, StoneRadius * 2, StoneRadius * 2);
+            g.DrawEllipse(pen, cx - StoneRadius - 2, cy - StoneRadius - 2, StoneRadius * 2 + 4, StoneRadius * 2 + 4);
+
+            using var rankBrush = new SolidBrush(colors[colorIdx]);
+            var rankText = "#" + (i + 1).ToString();
+            var sz = g.MeasureString(rankText, RankFont);
+            g.FillRectangle(Brushes.White, cx - sz.Width / 2 - 2, cy + StoneRadius + 2, sz.Width + 4, sz.Height);
+            g.DrawString(rankText, RankFont, rankBrush, cx - sz.Width / 2, cy + StoneRadius + 3);
         }
+    }
+
+    private void RenderHintHighlight(Graphics g)
+    {
+        if (!_hintMove.HasValue) return;
+
+        int cx = BoardMargin + _hintMove.Value.X * CellSize;
+        int cy = BoardMargin + _hintMove.Value.Y * CellSize;
+
+        using var pen = new Pen(Color.Red, 4);
+        for (int i = 0; i < 3; i++)
+        {
+            g.DrawEllipse(pen, cx - StoneRadius - 6 - i * 3, cy - StoneRadius - 6 - i * 3,
+                StoneRadius * 2 + 12 + i * 6, StoneRadius * 2 + 12 + i * 6);
+        }
+
+        var warnText = "WARN!";
+        var sz = g.MeasureString(warnText, WarnFont);
+        g.FillRectangle(Brushes.Red, cx - sz.Width / 2 - 4, cy - StoneRadius - 35, sz.Width + 8, sz.Height + 4);
+        g.DrawString(warnText, WarnFont, WhiteTextBrush, cx - sz.Width / 2, cy - StoneRadius - 33);
     }
 
     private void panelBoard_MouseMove(object? sender, MouseEventArgs e)
     {
         var cell = PointToCell(e.X, e.Y);
-        if (cell != _hoverCell)
-        {
-            _hoverCell = cell;
-            panelBoard.Invalidate();
-        }
+        if (cell == _hoverCell) return;
+
+        var oldCell = _hoverCell;
+        _hoverCell = cell;
+
+        if (oldCell.HasValue)
+            panelBoard.Invalidate(CellToRegion(oldCell.Value.X, oldCell.Value.Y));
+        if (cell.HasValue)
+            panelBoard.Invalidate(CellToRegion(cell.Value.X, cell.Value.Y));
+    }
+
+    private Rectangle CellToRegion(int x, int y)
+    {
+        int cx = BoardMargin + x * CellSize;
+        int cy = BoardMargin + y * CellSize;
+        int pad = StoneRadius + 8;
+        return new Rectangle(cx - pad, cy - pad, pad * 2, pad * 2);
     }
 
     private void panelBoard_MouseClick(object? sender, MouseEventArgs e)
@@ -457,7 +494,8 @@ public partial class MainForm : Form
         }
         _currentCandidates = candidates;
         UpdateCandidateLabels();
-        InvalidateBoard();
+        _boardCacheDirty = true;
+        panelBoard.Invalidate();
     }
 
     private void UpdateCandidateLabels()
@@ -496,6 +534,7 @@ public partial class MainForm : Form
 
         SetStatus(result);
         lblTimer.Text = "[X] Game Over";
+        _boardCacheDirty = true;
         InvalidateBoard();
         MessageBox.Show(result, "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
@@ -670,6 +709,7 @@ public partial class MainForm : Form
             {
                 _hintMove = (x, y);
                 SetStatus("Hint! AI suggests: " + MoveToStr(x, y));
+                _boardCacheDirty = true;
                 InvalidateBoard();
             }
         }
@@ -688,6 +728,7 @@ public partial class MainForm : Form
     {
         _aiCts?.Cancel();
         _thinkTimer?.Stop();
+        _boardCache?.Dispose();
         try { _aiTask?.Wait(500); } catch { }
     }
 }

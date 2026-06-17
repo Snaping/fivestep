@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GomokuAI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0f14995a44510d2d8c6b6da0bbde72011122c644")]
 [assembly: System.Reflection.AssemblyProductAttribute("GomokuAI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GomokuAI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

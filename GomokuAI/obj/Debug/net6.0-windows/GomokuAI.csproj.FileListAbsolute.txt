@@ -12,3 +12,4 @@ D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows
 D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.pdb
 D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.genruntimeconfig.cache
 D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\ref\GomokuAI.dll
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.sourcelink.json
