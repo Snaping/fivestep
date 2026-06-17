@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+﻿﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using GomokuAI.Engine;
 
@@ -365,9 +365,8 @@ public partial class MainForm : Form
         _aiCts = new CancellationTokenSource();
         var token = _aiCts.Token;
 
-        btnStopAI.Enabled = true;
-        btnNewGame.Enabled = false;
-        btnUndo.Enabled = false;
+        _aiTask = Task.CompletedTask;
+        UpdateUIState();
 
         _thinkStartTime = DateTime.Now;
         _thinkTimer?.Stop();
@@ -438,9 +437,6 @@ public partial class MainForm : Form
             _aiCts?.Dispose();
             _aiCts = null;
 
-            btnStopAI.Enabled = false;
-            btnNewGame.Enabled = true;
-            btnUndo.Enabled = _board.MoveHistory.Count > 0;
             UpdateUIState();
 
             if (_gameMode == GameMode.AISelfPlay && !_board.GameOver)
@@ -527,15 +523,15 @@ public partial class MainForm : Form
 
         _thinkTimer?.Stop();
         string result;
-        if (e.Winner == Stone.Black) result = "Black wins! Five in a row";
-        else if (e.Winner == Stone.White) result = "White wins! Five in a row";
-        else result = "Draw - Board full";
+        if (e.Winner == Stone.Black) result = "黑方胜利！五子连珠！\n\n点击「新游戏」按钮再来一局";
+        else if (e.Winner == Stone.White) result = "白方胜利！五子连珠！\n\n点击「新游戏」按钮再来一局";
+        else result = "平局！棋盘已满\n\n点击「新游戏」按钮再来一局";
 
-        SetStatus(result);
+        UpdateUIState();
         lblTimer.Text = "[X] Game Over";
         _boardCacheDirty = true;
         InvalidateBoard();
-        MessageBox.Show(result, "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(result, "对局结束", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void UpdateUIState()
@@ -546,6 +542,11 @@ public partial class MainForm : Form
         lblHintCount.Text = "Hints left: " + _hintCount.ToString();
         btnHint.Enabled = _hintCount > 0 && _gameMode == GameMode.PvAI &&
                           _board.CurrentPlayer == _humanPlayer && !_board.GameOver;
+
+        btnNewGame.Enabled = true;
+        btnSave.Enabled = _board.MoveHistory.Count > 0;
+        btnLoad.Enabled = true;
+        btnStopAI.Enabled = _aiTask != null && !_aiTask.IsCompleted;
 
         if (!_board.GameOver)
         {
@@ -565,8 +566,17 @@ public partial class MainForm : Form
                 SetStatus(who + "'s turn - Move " + (_board.MoveHistory.Count + 1).ToString());
             }
         }
+        else
+        {
+            if (_board.Winner == Stone.Black)
+                SetStatus("Game Over - Black wins! Click New Game to play again.");
+            else if (_board.Winner == Stone.White)
+                SetStatus("Game Over - White wins! Click New Game to play again.");
+            else
+                SetStatus("Game Over - Draw! Click New Game to play again.");
+        }
 
-        btnUndo.Enabled = _board.MoveHistory.Count > 0 && (_aiTask == null || _aiTask.IsCompleted);
+        btnUndo.Enabled = _board.MoveHistory.Count > 0 && (_aiTask == null || _aiTask.IsCompleted) && !_board.GameOver;
     }
 
     private void SetStatus(string msg)

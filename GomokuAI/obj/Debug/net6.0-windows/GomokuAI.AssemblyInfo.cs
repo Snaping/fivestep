@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GomokuAI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fd867dfd1ceee3ae6d3ec6809c6d201ca82c977b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c080829b7af1f60851de4f03699df0ce7a19a337")]
 [assembly: System.Reflection.AssemblyProductAttribute("GomokuAI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GomokuAI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
