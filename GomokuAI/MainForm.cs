@@ -1,9 +1,20 @@
 ﻿using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Reflection;
 using GomokuAI.Engine;
 
 namespace GomokuAI;
+
+public class DoubleBufferedPanel : Panel
+{
+    public DoubleBufferedPanel()
+    {
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.OptimizedDoubleBuffer
+               | ControlStyles.AllPaintingInWmPaint
+               | ControlStyles.UserPaint
+               | ControlStyles.ResizeRedraw, true);
+    }
+}
 
 public partial class MainForm : Form
 {
@@ -62,23 +73,11 @@ public partial class MainForm : Form
         _useTimeLimit = false;
         _currentTimeLimit = TimeSpan.FromSeconds(5);
 
-        EnableDoubleBuffering(panelBoard);
-
         _board.BoardChanged += (s, e) => { _boardCacheDirty = true; InvalidateBoard(); };
         _board.GameOverOccurred += OnGameOver;
 
         cmbAISide.SelectedIndex = 1;
         UpdateUIState();
-    }
-
-    private static void EnableDoubleBuffering(Control control)
-    {
-        var prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
-        prop?.SetValue(control, true);
-        typeof(Control).InvokeMember("SetStyle",
-            BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.NonPublic,
-            null, control,
-            new object[] { (int)(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint), true });
     }
 
     private void EnsureBoardCache()

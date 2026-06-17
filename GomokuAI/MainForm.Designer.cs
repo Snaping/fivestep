@@ -3,7 +3,7 @@ namespace GomokuAI;
 partial class MainForm
 {
     private System.ComponentModel.IContainer components = null;
-    private System.Windows.Forms.Panel panelBoard;
+    private DoubleBufferedPanel panelBoard;
     private System.Windows.Forms.Panel panelControl;
     private System.Windows.Forms.StatusStrip statusStrip;
     private System.Windows.Forms.ToolStripStatusLabel lblStatus;
@@ -52,7 +52,7 @@ partial class MainForm
 
     private void InitializeComponent()
     {
-        this.panelBoard = new System.Windows.Forms.Panel();
+        this.panelBoard = new DoubleBufferedPanel();
         this.panelControl = new System.Windows.Forms.Panel();
         this.grpPlayers = new System.Windows.Forms.GroupBox();
         this.lblMoveCount = new System.Windows.Forms.Label();
