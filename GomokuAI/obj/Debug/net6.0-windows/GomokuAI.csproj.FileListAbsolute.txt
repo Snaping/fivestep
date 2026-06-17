@@ -1,0 +1,14 @@
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\bin\Debug\net6.0-windows\GomokuAI.exe
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\bin\Debug\net6.0-windows\GomokuAI.deps.json
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\bin\Debug\net6.0-windows\GomokuAI.runtimeconfig.json
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\bin\Debug\net6.0-windows\GomokuAI.dll
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\bin\Debug\net6.0-windows\GomokuAI.pdb
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.GeneratedMSBuildEditorConfig.editorconfig
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.AssemblyInfoInputs.cache
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.AssemblyInfo.cs
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.csproj.CoreCompileInputs.cache
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.dll
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\refint\GomokuAI.dll
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.pdb
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\GomokuAI.genruntimeconfig.cache
+D:\WorkSpace\Agent\MultiSoloSpace\617\fivestep\GomokuAI\obj\Debug\net6.0-windows\ref\GomokuAI.dll
